@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BLE工具</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        .header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            gap: 20px;
+        }
+        .left-panel {
+            flex: 1;
+            min-width: 350px;
+        }
+        .right-panel {
+            flex: 2;
+            min-width: 500px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-gap: 20px;
+        }
+        .right-panel > .panel:nth-child(3),
+        .right-panel > .panel:nth-child(4) {
+            grid-column: span 2;
+        }
+        @media (max-width: 1024px) {
+            .right-panel {
+                grid-template-columns: 1fr;
+            }
+            .right-panel > .panel:nth-child(3),
+            .right-panel > .panel:nth-child(4) {
+                grid-column: span 1;
+            }
+        }
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            .left-panel, .right-panel {
+                min-width: 100%;
+            }
+        }
+        .panel {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .full-width {
+            grid-column: span 2;
+        }
+        @media (max-width: 768px) {
+            .full-width {
+                grid-column: span 1;
+            }
+        }
+        h1, h2 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        h1 {
+            font-size: 1.5rem;
+            margin: 0;
+        }
+        h2 {
+            font-size: 1.2rem;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 5px;
+        }
+        button {
+            background-color: #3498db;
+            border: none;
+            color: white;
+            padding: 10px 15px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        button.disconnect {
+            background-color: #e74c3c;
+        }
+        button.disconnect:hover {
+            background-color: #c0392b;
+        }
+        button.scan {
+            background-color: #2ecc71;
+        }
+        button.scan:hover {
+            background-color: #27ae60;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            display: inline-block;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-family: inherit;
+            font-size: 14px;
+        }
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        .log, .received-data {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            border-radius: 4px;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+        .received-data {
+            height: 150px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            text-align: center;
+            font-weight: bold;
+        }
+        .connected {
+            background-color: #d5f5e3;
+            color: #27ae60;
+        }
+        .disconnected {
+            background-color: #fadbd8;
+            color: #e74c3c;
+        }
+        .info {
+            background-color: #d6eaf8;
+            color: #2980b9;
+        }
+        .device-list {
+            list-style-type: none;
+            padding: 0;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .device-item {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .device-item:hover {
+            background-color: #f5f5f5;
+        }
+        .device-item:last-child {
+            border-bottom: none;
+        }
+        .device-item strong {
+            display: block;
+            font-size: 1.1em;
+        }
+        .device-item small {
+            color: #7f8c8d;
+        }
+        .hidden {
+            display: none;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .notification {
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border: 1px solid #ffeaa7;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>BLE工具</h1>
+    </div>
+
+    <div class="container">
+        <div class="left-panel">
+            <div class="panel">
+                <h2>设备连接</h2>
+                <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
+                    <button id="scanBtn" class="scan">扫描设备</button>
+                    <button id="disconnectBtn" class="disconnect hidden">断开连接</button>
+                </div>
+                <div id="scanStatus" class="status info hidden">正在扫描设备...</div>
+                <div id="connectionStatus" class="status disconnected">未连接设备</div>
+                <ul id="deviceList" class="device-list"></ul>
+            </div>
+        </div>
+
+        <div class="right-panel">
+            <div class="panel">
+                <h2>服务与特征</h2>
+                <div id="servicesStatus" class="notification hidden">连接后自动获取服务信息</div>
+                <div class="form-group">
+                    <label for="serviceUuid">服务 UUID:</label>
+                    <select id="serviceUuid">
+                        <option value="">请选择服务</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="characteristicUuid">特征 UUID:</label>
+                    <select id="characteristicUuid">
+                        <option value="">请选择特征</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>数据传输</h2>
+                <div class="form-group">
+                    <label for="textData">发送数据:</label>
+                    <textarea id="textData" placeholder="输入要发送的文本或十六进制数据"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="dataFormat">数据格式:</label>
+                    <select id="dataFormat">
+                        <option value="text">文本 (UTF-8)</option>
+                        <option value="hex">十六进制</option>
+                    </select>
+                </div>
+
+                <button id="sendDataBtn" disabled>发送数据</button>
+            </div>
+
+            <div class="panel">
+                <h2>接收数据</h2>
+                <div class="form-group">
+                    <label for="notifyCharacteristicUuid">通知特征 UUID:</label>
+                    <select id="notifyCharacteristicUuid">
+                        <option value="">请选择特征</option>
+                    </select>
+                    <button id="startNotifyBtn" disabled>启动通知监听</button>
+                </div>
+                <div id="receivedData" class="received-data">暂无接收到的数据</div>
+                <button id="clearReceivedDataBtn">清空接收数据</button>
+            </div>
+
+            <div class="panel">
+                <h2>操作日志</h2>
+                <div id="log" class="log"></div>
+                <button id="clearLogBtn">清空日志</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let selectedDevice = null;
+        let isConnected = false;
+        let notificationCharacteristic = null;
+
+        // DOM元素
+        const scanBtn = document.getElementById('scanBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const startNotifyBtn = document.getElementById('startNotifyBtn');
+        const sendDataBtn = document.getElementById('sendDataBtn');
+        const clearLogBtn = document.getElementById('clearLogBtn');
+        const clearReceivedDataBtn = document.getElementById('clearReceivedDataBtn');
+        const deviceList = document.getElementById('deviceList');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const scanStatus = document.getElementById('scanStatus');
+        const servicesStatus = document.getElementById('servicesStatus');
+        const logElement = document.getElementById('log');
+        const receivedDataElement = document.getElementById('receivedData');
+        const serviceUuidSelect = document.getElementById('serviceUuid');
+        const characteristicUuidSelect = document.getElementById('characteristicUuid');
+        const notifyCharacteristicUuidSelect = document.getElementById('notifyCharacteristicUuid');
+        const textDataInput = document.getElementById('textData');
+        const dataFormatSelect = document.getElementById('dataFormat');
+
+        // 工具函数：日志记录
+        function log(message, type = 'info') {
+            const time = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.textContent = `[${time}] ${message}`;
+            logEntry.className = type;
+            logElement.appendChild(logEntry);
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        // 扫描设备
+        scanBtn.addEventListener('click', async () => {
+            try {
+                scanBtn.disabled = true;
+                scanStatus.classList.remove('hidden');
+                deviceList.innerHTML = '';
+
+                log('开始扫描BLE设备...');
+
+                const response = await fetch('/scan', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    log('扫描请求已发送，等待结果...');
+
+                    // 定期检查扫描结果
+                    setTimeout(async () => {
+                        try {
+                            const devicesResponse = await fetch('/devices');
+                            const devicesResult = await devicesResponse.json();
+
+                            if (devicesResult.devices && devicesResult.devices.length > 0) {
+                                displayDevices(devicesResult.devices);
+                                log(`发现 ${devicesResult.devices.length} 个设备`);
+                            } else {
+                                log('未发现任何设备');
+                            }
+                        } catch (error) {
+                            log(`获取设备列表失败: ${error.message}`, 'error');
+                        }
+
+                        scanBtn.disabled = false;
+                        scanStatus.classList.add('hidden');
+                    }, 6000); // 等待扫描完成
+                } else {
+                    log(`扫描失败: ${result.message}`, 'error');
+                    scanBtn.disabled = false;
+                    scanStatus.classList.add('hidden');
+                }
+            } catch (error) {
+                log(`扫描设备时出错: ${error.message}`, 'error');
+                scanBtn.disabled = false;
+                scanStatus.classList.add('hidden');
+            }
+        });
+
+        // 显示设备列表
+        function displayDevices(devices) {
+            deviceList.innerHTML = '';
+
+            devices.forEach(device => {
+                const listItem = document.createElement('li');
+                listItem.className = 'device-item';
+                listItem.innerHTML = `
+                    <strong>${device.name || '未知设备'}</strong><br>
+                    <small>地址: ${device.address}</small><br>
+                <small>RSSI: ${device.rssi}</small>
+                `;
+
+                listItem.addEventListener('click', () => {
+                    selectDevice(device);
+                });
+
+                deviceList.appendChild(listItem);
+            });
+        }
+
+        // 选择设备
+        function selectDevice(device) {
+            selectedDevice = device;
+            log(`已选择设备: ${device.name || device.address}`);
+
+            // 连接设备
+            connectToDevice(device);
+        }
+
+        // 连接设备
+        async function connectToDevice(device) {
+            try {
+                log(`正在连接到设备: ${device.name || device.address}...`);
+
+                const response = await fetch('/connect', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        address: device.address
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    log('连接请求已发送');
+
+                    // 模拟连接状态更新（实际应该通过轮询或WebSocket获取状态）
+                    setTimeout(async () => {
+                        isConnected = true;
+                        updateConnectionStatus();
+                        sendDataBtn.disabled = false;
+                        disconnectBtn.classList.remove('hidden');
+                        servicesStatus.classList.remove('hidden');
+                        log(`成功连接到设备: ${device.name || device.address}`);
+
+                        // 自动获取服务列表
+                        await autoGetServices();
+                    }, 2000);
+                } else {
+                    log(`连接失败: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                log(`连接设备时出错: ${error.message}`, 'error');
+            }
+        }
+
+        // 断开连接
+        disconnectBtn.addEventListener('click', async () => {
+            try {
+                log('正在断开连接...');
+
+                const response = await fetch('/disconnect', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    log('断开连接请求已发送');
+
+                    // 模拟断开连接状态更新
+                    setTimeout(() => {
+                        isConnected = false;
+                        selectedDevice = null;
+                        notificationCharacteristic = null;
+                        updateConnectionStatus();
+                        sendDataBtn.disabled = true;
+                        disconnectBtn.classList.add('hidden');
+                        servicesStatus.classList.add('hidden');
+                        // 清空服务和特征选择框
+                        serviceUuidSelect.innerHTML = '<option value="">请选择服务</option>';
+                        characteristicUuidSelect.innerHTML = '<option value="">请选择特征</option>';
+                        log('设备已断开连接');
+                    }, 1000);
+                } else {
+                    log(`断开连接失败: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                log(`断开连接时出错: ${error.message}`, 'error');
+            }
+        });
+
+        // 更新连接状态显示
+        function updateConnectionStatus() {
+            if (isConnected && selectedDevice) {
+                connectionStatus.className = 'status connected';
+                connectionStatus.textContent = `已连接: ${selectedDevice.name || selectedDevice.address}`;
+            } else {
+                connectionStatus.className = 'status disconnected';
+                connectionStatus.textContent = '未连接设备';
+            }
+        }
+
+        // 自动获取服务列表
+        async function autoGetServices() {
+            try {
+                log('正在自动获取服务列表...');
+
+                const response = await fetch('/services');
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    if (result.services) {
+                        // 直接使用已获取的服务信息
+                        populateServices(result.services);
+                        populateServices(result.services);
+                        log(`已自动获取到 ${result.services.length} 个服务`);
+                        servicesStatus.classList.add('hidden');
+                    } else {
+                        // 如果服务尚未准备好，等待一段时间后再次尝试
+                        setTimeout(async () => {
+                            const retryResponse = await fetch('/services');
+                            const retryResult = await retryResponse.json();
+                            if (retryResult.status === 'success' && retryResult.services) {
+                                populateServices(retryResult.services);
+                                populateServices(retryResult.services);
+                                log(`已自动获取到 ${retryResult.services.length} 个服务`);
+                                servicesStatus.classList.add('hidden');
+                            } else {
+                                log('获取服务列表失败', 'error');
+                            }
+                        }, 2000);
+                    }
+                } else {
+                    log(`自动获取服务列表失败: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                log(`自动获取服务列表时出错: ${error.message}`, 'error');
+            }
+        }
+
+        // 填充服务和特征选择框
+        function populateServices(services) {
+            // 清空现有选项
+            serviceUuidSelect.innerHTML = '<option value="">请选择服务</option>';
+            characteristicUuidSelect.innerHTML = '<option value="">请选择特征</option>';
+            notifyCharacteristicUuidSelect.innerHTML = '<option value="">请选择特征</option>';
+
+            // 填充服务选项
+            services.forEach(service => {
+                const option = document.createElement('option');
+                option.value = service.uuid;
+                option.textContent = `${service.uuid} (${service.description || '无描述'})`;
+                serviceUuidSelect.appendChild(option);
+
+                // 为通知特征选择框也添加选项
+                service.characteristics.forEach(char => {
+                    if (char.properties.includes('notify') || char.properties.includes('indicate')) {
+                        const notifyOption = document.createElement('option');
+                        notifyOption.value = char.uuid;
+                        // 显示特征的属性信息
+                        const properties = char.properties.join(', ');
+                        notifyOption.textContent = `${char.uuid} (${char.description || '无描述'} - ${properties})`;
+                        notifyCharacteristicUuidSelect.appendChild(notifyOption);
+                    }
+                });
+            });
+
+            // 当选择服务时，填充对应的特征
+            serviceUuidSelect.onchange = function() {
+                characteristicUuidSelect.innerHTML = '<option value="">请选择特征</option>';
+
+                if (!this.value) return;
+
+                const selectedService = services.find(s => s.uuid === this.value);
+                if (selectedService) {
+                    selectedService.characteristics.forEach(char => {
+                        const option = document.createElement('option');
+                        option.value = char.uuid;
+                        // 显示特征的属性信息
+                        const properties = char.properties.join(', ');
+                        option.textContent = `${char.uuid} (${char.description || '无描述'} - ${properties})`;
+                        characteristicUuidSelect.appendChild(option);
+                    });
+                }
+            };
+
+            // 启用通知按钮
+            if (notifyCharacteristicUuidSelect.options.length > 1) {
+                startNotifyBtn.disabled = false;
+            } else {
+                startNotifyBtn.disabled = true;
+            }
+        }
+
+        // 发送数据
+        sendDataBtn.addEventListener('click', async () => {
+            const serviceUuid = serviceUuidSelect.value;
+            const characteristicUuid = characteristicUuidSelect.value;
+            const textData = textDataInput.value;
+            const dataFormat = dataFormatSelect.value;
+
+            if (!serviceUuid || !characteristicUuid || !textData) {
+                log('请选择服务和特征，并填写要发送的数据', 'error');
+                return;
+            }
+
+            try {
+                log(`正在发送${dataFormat === 'text' ? '文本' : '十六进制'}数据...`);
+
+                const response = await fetch('/send', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        service_uuid: serviceUuid,
+                        characteristic_uuid: characteristicUuid,
+                        text_data: textData,
+                        format: dataFormat
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    log('数据发送请求已发送');
+                } else {
+                    log(`数据发送失败: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                log(`发送数据时出错: ${error.message}`, 'error');
+            }
+        });
+
+        // 清空日志
+        clearLogBtn.addEventListener('click', () => {
+            logElement.innerHTML = '';
+        });
+
+        // 启动通知监听
+        startNotifyBtn.addEventListener('click', async () => {
+            const characteristicUuid = notifyCharacteristicUuidSelect.value;
+
+            if (!characteristicUuid) {
+                log('请选择要监听的通知特征', 'error');
+                return;
+            }
+
+            try {
+                log(`正在为特征 ${characteristicUuid} 启动通知监听...`);
+
+                const response = await fetch('/start_notify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        characteristic_uuid: characteristicUuid
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    log(`已启动对特征 ${characteristicUuid} 的通知监听`);
+                } else {
+                    log(`启动通知监听失败: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                log(`启动通知监听时出错: ${error.message}`, 'error');
+            }
+        });
+
+        // 清空接收数据
+        clearReceivedDataBtn.addEventListener('click', () => {
+            receivedDataElement.textContent = '暂无接收到的数据';
+        });
+
+        // 添加处理从BLE设备接收数据的函数
+        function handleReceivedData(data) {
+            const currentTime = new Date().toLocaleTimeString();
+            const dataEntry = `[${currentTime}] ${data}\n`;
+
+            if (receivedDataElement.textContent === '暂无接收到的数据') {
+                receivedDataElement.textContent = dataEntry;
+            } else {
+                receivedDataElement.textContent += dataEntry;
+            }
+
+            // 滚动到底部
+            receivedDataElement.scrollTop = receivedDataElement.scrollHeight;
+        }
+
+        // 初始化
+        log('BLE工具已启动');
+        updateConnectionStatus();
+    </script>
+</body>
+</html>

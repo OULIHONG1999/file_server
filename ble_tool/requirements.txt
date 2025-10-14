@@ -1,0 +1,4 @@
+flask==2.3.2
+bleak==1.1.1
+pywebview==4.4.1
+pyinstaller==6.14.0

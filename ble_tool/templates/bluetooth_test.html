@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Bluetooth API 支持测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .test-result {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .supported {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .not-supported {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .requirement {
+            margin: 15px 0;
+            padding: 10px;
+            border-left: 4px solid #3498db;
+            background-color: #e3f2fd;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: block;
+            margin: 20px auto;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        .log {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            border-radius: 4px;
+            padding: 15px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Web Bluetooth API 支持测试</h1>
+        
+        <div id="browserSupport" class="test-result">
+            检测中...
+        </div>
+        
+        <div id="secureContext" class="test-result">
+            检测中...
+        </div>
+        
+        <div id="httpsContext" class="test-result">
+            检测中...
+        </div>
+        
+        <div class="requirement">
+            <h3>Web Bluetooth API 要求:</h3>
+            <ul>
+                <li>支持Web Bluetooth API的浏览器 (Chrome 56+, Edge 79+)</li>
+                <li>安全上下文 (HTTPS或localhost)</li>
+                <li>用户主动操作 (点击等事件触发)</li>
+            </ul>
+        </div>
+        
+        <button id="testButton" disabled>测试 Bluetooth 连接</button>
+        
+        <div class="log" id="log">
+等待测试...
+        </div>
+    </div>
+
+    <script>
+        const browserSupportDiv = document.getElementById('browserSupport');
+        const secureContextDiv = document.getElementById('secureContext');
+        const httpsContextDiv = document.getElementById('httpsContext');
+        const testButton = document.getElementById('testButton');
+        const logDiv = document.getElementById('log');
+        
+        function log(message) {
+            const time = new Date().toLocaleTimeString();
+            logDiv.textContent += `[${time}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        // 检查浏览器是否支持Web Bluetooth API
+        if ('bluetooth' in navigator) {
+            browserSupportDiv.className = 'test-result supported';
+            browserSupportDiv.textContent = '✓ 浏览器支持 Web Bluetooth API';
+            log('浏览器支持Web Bluetooth API');
+        } else {
+            browserSupportDiv.className = 'test-result not-supported';
+            browserSupportDiv.textContent = '✗ 浏览器不支持 Web Bluetooth API';
+            log('浏览器不支持Web Bluetooth API');
+        }
+        
+        // 检查是否在安全上下文中
+        if (window.isSecureContext) {
+            secureContextDiv.className = 'test-result supported';
+            secureContextDiv.textContent = '✓ 当前在安全上下文中运行';
+            log('当前在安全上下文中运行');
+        } else {
+            secureContextDiv.className = 'test-result not-supported';
+            secureContextDiv.textContent = '✗ 当前不在安全上下文中运行';
+            log('当前不在安全上下文中运行');
+        }
+        
+        // 检查是否通过HTTPS访问（localhost除外）
+        if (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+            httpsContextDiv.className = 'test-result supported';
+            httpsContextDiv.textContent = '✓ 通过安全协议访问 (' + location.protocol + ')';
+            log('通过安全协议访问 (' + location.protocol + ')');
+            
+            // 如果所有条件都满足，启用测试按钮
+            if ('bluetooth' in navigator && window.isSecureContext) {
+                testButton.disabled = false;
+                log('所有条件满足，可以进行Bluetooth测试');
+            }
+        } else {
+            httpsContextDiv.className = 'test-result not-supported';
+            httpsContextDiv.textContent = '✗ 需要通过HTTPS或localhost访问 (当前协议: ' + location.protocol + ')';
+            log('需要通过HTTPS或localhost访问 (当前协议: ' + location.protocol + ')');
+        }
+        
+        // 测试Bluetooth连接
+        testButton.addEventListener('click', async () => {
+            try {
+                log('请求Bluetooth设备...');
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true
+                });
+                log('成功请求到设备: ' + (device.name || device.id));
+                
+                // 显示设备信息
+                alert('成功! 找到设备: ' + (device.name || device.id));
+            } catch (error) {
+                log('请求设备时出错: ' + error.message);
+                console.error('Bluetooth error:', error);
+                
+                // 根据错误类型提供更具体的提示
+                if (error.name === 'SecurityError') {
+                    alert('安全错误: Web Bluetooth API只能在安全上下文中使用(HTTPS或localhost)');
+                } else if (error.name === 'NotFoundError') {
+                    alert('未找到设备: 请确保蓝牙设备在附近并处于可发现状态');
+                } else {
+                    alert('请求设备时出错: ' + error.message);
+                }
+            }
+        });
+        
+        log('测试页面加载完成');
+        log('浏览器: ' + navigator.userAgent);
+    </script>
+</body>
+</html>
